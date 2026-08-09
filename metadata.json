@@ -1,0 +1,6 @@
+{
+  "name": "Deep Liquidity",
+  "description": "AI-Powered Market Intelligence & Financial Liquidity Analytics",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

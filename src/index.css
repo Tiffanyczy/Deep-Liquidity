@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-surface: #0b1326;
+    --bg-surface-dim: #0b1326;
+    --bg-surface-bright: #31394d;
+    --bg-surface-container-low: #131b2e;
+    --bg-surface-container: #171f33;
+    --bg-surface-container-high: #222a3d;
+    --bg-surface-container-highest: #2d3449;
+    --bg-surface-variant: #2d3449;
+    --color-on-surface: #dae2fd;
+    --color-on-surface-variant: #c2c6d7;
+    --color-primary: #afc6ff;
+    --color-primary-container: #528dff;
+    --color-on-primary-container: #00275f;
+    --color-secondary: #4edea3;
+    --color-error: #ffb4ab;
+    --color-outline: #8c90a0;
+    --color-outline-variant: #424754;
+  }
+
+  body {
+    background-color: #0b1326;
+    color: #dae2fd;
+    font-family: 'Hanken Grotesk', sans-serif;
+  }
+}
+
+.font-data-display, .font-label-md, .font-label-sm {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.data-card {
+  background-color: #171f33;
+  border: 1px solid #2d3449;
+  border-radius: 0.75rem;
+}
+
+.list-item-divider {
+  border-bottom: 1px solid #2d3449;
+}
+
+.no-scrollbar::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar, .scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.timeline-line::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 24px;
+  bottom: -24px;
+  width: 2px;
+  background-color: #424754;
+  z-index: 0;
+}
+
+.timeline-item:last-child .timeline-line::before {
+  display: none;
+}
+
