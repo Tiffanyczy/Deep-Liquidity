@@ -193,67 +193,250 @@ export function getTimeframeDataForStock(stock: Stock, dateStr?: string): Record
   const price = stock.price;
   const isPos = stock.isPositive;
 
+  // Safe date parsing for labels
+  let baseDate = new Date();
+  if (dateStr) {
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        baseDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+      }
+    } catch {
+      baseDate = new Date();
+    }
+  }
+
+  const formatShortMonthDay = (d: Date) => {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    return `${months[d.getMonth()]} ${d.getDate()}`;
+  };
+
+  const formatYearLabel = (d: Date) => {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const yr = String(d.getFullYear()).slice(-2);
+    return `${months[d.getMonth()]} '${yr}`;
+  };
+
+  // Compute 1W labels
+  const wD1 = new Date(baseDate); wD1.setDate(baseDate.getDate() - 6);
+  const wD2 = new Date(baseDate); wD2.setDate(baseDate.getDate() - 3);
+
+  // Compute 1M labels
+  const mD1 = new Date(baseDate); mD1.setDate(baseDate.getDate() - 30);
+  const mD2 = new Date(baseDate); mD2.setDate(baseDate.getDate() - 15);
+
+  // Compute 3M labels
+  const m3D1 = new Date(baseDate); m3D1.setDate(baseDate.getDate() - 90);
+  const m3D2 = new Date(baseDate); m3D2.setDate(baseDate.getDate() - 45);
+
+  // Compute 1Y labels
+  const yD1 = new Date(baseDate); yD1.setDate(baseDate.getDate() - 365);
+  const yD2 = new Date(baseDate); yD2.setDate(baseDate.getDate() - 180);
+
+  // Price adjustment multiplier based on date string
+  let dateSeed = 0;
+  if (dateStr) {
+    for (let i = 0; i < dateStr.length; i++) dateSeed += dateStr.charCodeAt(i);
+  }
+  const factor = 1 + ((dateSeed % 15) - 7) * 0.01;
+  const adjPrice = Number((price * factor).toFixed(2));
+
   return {
     '1D': {
       periodKey: '1D',
       label: 'Daily (1D)',
-      price: price,
+      price: adjPrice,
       change: isPos ? `+$${stock.change.toFixed(2)}` : `-$${Math.abs(stock.change).toFixed(2)}`,
       changePercent: isPos ? `+${stock.changePercent.toFixed(2)}%` : `${stock.changePercent.toFixed(2)}%`,
       isPositive: isPos,
-      high: Number((price * 1.018).toFixed(2)),
-      low: Number((price * 0.982).toFixed(2)),
+      high: Number((adjPrice * 1.018).toFixed(2)),
+      low: Number((adjPrice * 0.982).toFixed(2)),
       sparklineData: stock.sparklineData && stock.sparklineData.length > 0 ? stock.sparklineData : [10, 15, 12, 28, 45, 52, 60, 75, 88],
       timeLabels: ['9:30 AM', '12:00 PM', '4:00 PM'],
     },
     '1W': {
       periodKey: '1W',
       label: 'Weekly (1W)',
-      price: price,
+      price: adjPrice,
       change: '+$9.45',
       changePercent: '+4.88%',
       isPositive: true,
-      high: Number((price * 1.045).toFixed(2)),
-      low: Number((price * 0.955).toFixed(2)),
+      high: Number((adjPrice * 1.045).toFixed(2)),
+      low: Number((adjPrice * 0.955).toFixed(2)),
       sparklineData: [12, 18, 15, 22, 28, 32, 40, 48, 55],
-      timeLabels: ['MON', 'WED', 'FRI'],
+      timeLabels: [formatShortMonthDay(wD1), formatShortMonthDay(wD2), formatShortMonthDay(baseDate)],
     },
     '1M': {
       periodKey: '1M',
       label: 'Monthly (1M)',
-      price: price,
+      price: adjPrice,
       change: '-$4.35',
       changePercent: '-2.10%',
       isPositive: false,
-      high: Number((price * 1.082).toFixed(2)),
-      low: Number((price * 0.915).toFixed(2)),
+      high: Number((adjPrice * 1.082).toFixed(2)),
+      low: Number((adjPrice * 0.915).toFixed(2)),
       sparklineData: [65, 58, 52, 40, 38, 25, 20, 18, 22],
-      timeLabels: ['FEB 1', 'FEB 15', 'MAR 1'],
+      timeLabels: [formatShortMonthDay(mD1), formatShortMonthDay(mD2), formatShortMonthDay(baseDate)],
     },
     '3M': {
       periodKey: '3M',
       label: '3 Months (3M)',
-      price: price,
+      price: adjPrice,
       change: '+$24.10',
       changePercent: '+13.50%',
       isPositive: true,
-      high: Number((price * 1.15).toFixed(2)),
-      low: Number((price * 0.88).toFixed(2)),
+      high: Number((adjPrice * 1.15).toFixed(2)),
+      low: Number((adjPrice * 0.88).toFixed(2)),
       sparklineData: [20, 25, 30, 22, 40, 55, 62, 70, 82],
-      timeLabels: ['JAN', 'FEB', 'MAR'],
+      timeLabels: [formatShortMonthDay(m3D1), formatShortMonthDay(m3D2), formatShortMonthDay(baseDate)],
     },
     '1Y': {
       periodKey: '1Y',
       label: 'Yearly (1Y)',
-      price: price,
+      price: adjPrice,
       change: '+$56.20',
       changePercent: '+38.40%',
       isPositive: true,
-      high: Number((price * 1.25).toFixed(2)),
-      low: Number((price * 0.68).toFixed(2)),
+      high: Number((adjPrice * 1.25).toFixed(2)),
+      low: Number((adjPrice * 0.68).toFixed(2)),
       sparklineData: [10, 15, 25, 20, 35, 45, 55, 65, 88],
-      timeLabels: ['MAR \'23', 'SEP \'23', 'MAR \'24'],
+      timeLabels: [formatYearLabel(yD1), formatYearLabel(yD2), formatYearLabel(baseDate)],
     },
+  };
+}
+
+export function getDynamicInsightForStock(stock: Stock, dateStr: string): StockInsight {
+  const formatFullDate = (iso: string) => {
+    try {
+      const parts = iso.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
+      return iso;
+    } catch {
+      return iso;
+    }
+  };
+
+  const formattedDateStr = formatFullDate(dateStr);
+
+  const seedString = `${stock.ticker}-${dateStr}`;
+  let hash = 0;
+  for (let i = 0; i < seedString.length; i++) {
+    hash = (hash << 5) - hash + seedString.charCodeAt(i);
+    hash |= 0;
+  }
+  const positiveHash = Math.abs(hash);
+
+  const catalystsByTicker: Record<string, Array<{ title: string; cat: string; desc: string }>> = {
+    TSLA: [
+      {
+        title: 'FSD Unsupervised Autonomous Testing Approval',
+        cat: 'REGULATORY CATALYST',
+        desc: `Regulatory filings on ${formattedDateStr} confirmed expanded robotaxi trial permits in key markets. Buy-side interest escalated rapidly following the disclosure.`,
+      },
+      {
+        title: 'Megapack Storage Production & Grid Deployment Record',
+        cat: 'CAPITAL ALLOCATION',
+        desc: `Energy division shipment throughput on ${formattedDateStr} reached new quarterly highs with utility grid expansion contracts across North America.`,
+      },
+      {
+        title: 'Federal Reserve Rate Policy & Growth Sector Inflows',
+        cat: 'MACRO LIQUIDITY',
+        desc: `Central bank interest rate commentary on ${formattedDateStr} eased borrowing cost concerns, driving liquidity into high-beta technology leaders.`,
+      },
+    ],
+    NVDA: [
+      {
+        title: 'Blackwell GPU Datacenter Cluster Allocation Expansion',
+        cat: 'PRODUCT CATALYST',
+        desc: `Hyperscale cloud operators increased hardware reservations for NVDA Blackwell servers on ${formattedDateStr}, pushing sell-side consensus higher.`,
+      },
+      {
+        title: 'Sovereign AI Infrastructure Investment Expansion',
+        cat: 'ENTERPRISE DEAL',
+        desc: `National datacenter initiatives announced $3.8B in hardware commitments on ${formattedDateStr}, sparking aggressive institutional accumulation.`,
+      },
+      {
+        title: 'Semiconductor Supply Chain & Advanced Packaging Records',
+        cat: 'OPERATIONAL CATALYST',
+        desc: `TSMC packaging bottlenecks eased on ${formattedDateStr}, accelerating delivery timelines for enterprise AI compute platforms.`,
+      },
+    ],
+    GOOGL: [
+      {
+        title: 'Gemini 2.5 Multi-Modal Enterprise Deployment',
+        cat: 'AI ENGINE CATALYST',
+        desc: `Google Cloud Enterprise AI deals expanded on ${formattedDateStr} following major Healthcare and Automotive multi-year software migrations.`,
+      },
+      {
+        title: 'Waymo Autonomous Commercial Trip Volume Record',
+        cat: 'AUTONOMOUS VEHICLES',
+        desc: `Waymo logged over 250,000 weekly paid autonomous trips on ${formattedDateStr}, bolstering long-term sum-of-the-parts valuation models.`,
+      },
+    ],
+  };
+
+  const tickerCatalysts = catalystsByTicker[stock.ticker] || [
+    {
+      title: `${stock.name} Strategic Expansion & Portfolio Optimization`,
+      cat: 'BUSINESS CATALYST',
+      desc: `Institutional trading activity around ${stock.ticker} on ${formattedDateStr} registered elevated buy-side volume as institutional accounts rebalanced portfolios.`,
+    },
+    {
+      title: `${stock.name} Quarterly Capital Allocation & Market Orders`,
+      cat: 'MARKET REACTION',
+      desc: `Market makers reported balanced order books around $${stock.price.toFixed(2)} on ${formattedDateStr} with active call options volume.`,
+    },
+  ];
+
+  const catObj = tickerCatalysts[positiveHash % tickerCatalysts.length];
+  const isPositiveDay = (positiveHash % 2) === 0;
+  const changeVal = (0.6 + (positiveHash % 38) / 10).toFixed(2);
+  const changePercentStr = isPositiveDay ? `+${changeVal}%` : `-${changeVal}%`;
+  const retailScore = 62 + (positiveHash % 32);
+  const instScore = 58 + ((positiveHash * 3) % 38);
+
+  return {
+    ticker: stock.ticker,
+    companyName: stock.name,
+    date: formattedDateStr,
+    catalystTitle: catObj.title,
+    catalystCategory: catObj.cat,
+    catalystDescription: catObj.desc,
+    intradayChange: changePercentStr,
+    intradayNote: isPositiveDay
+      ? `Heavy institutional block trading on ${formattedDateStr} sustained price momentum above $${(stock.price * 0.985).toFixed(2)}.`
+      : `Consolidation pressure on ${formattedDateStr} as short-term traders took profit near technical resistance at $${(stock.price * 1.02).toFixed(2)}.`,
+    intradaySparkline: isPositiveDay ? [12, 18, 25, 40, 58, 72, 85] : [85, 70, 52, 45, 38, 22, 15],
+    sentiment: isPositiveDay ? 'BULLISH' : 'NEUTRAL',
+    retailScore: retailScore,
+    institutionalScore: instScore,
+    timeline: [
+      {
+        time: '9:30 AM EST',
+        title: 'Market Open Liquidity',
+        description: `Opening volume surge in ${stock.ticker} on ${formattedDateStr} as institutional pools opened orders.`,
+        changePercent: isPositiveDay ? '+0.9%' : '-0.6%',
+        isPositive: isPositiveDay,
+      },
+      {
+        time: '12:30 PM EST',
+        title: 'Midday Volume Flow',
+        description: `Secondary block trades cleared across major exchanges on ${formattedDateStr}.`,
+        changePercent: isPositiveDay ? '+2.1%' : '-1.2%',
+        isPositive: isPositiveDay,
+      },
+      {
+        time: '3:45 PM EST',
+        title: 'Power Hour Position Settlement',
+        description: `Closing market-on-close imbalance executed with high liquidity on ${formattedDateStr}.`,
+        changePercent: changePercentStr,
+        isPositive: isPositiveDay,
+      },
+    ],
+    timeframes: getTimeframeDataForStock(stock, dateStr),
   };
 }
 

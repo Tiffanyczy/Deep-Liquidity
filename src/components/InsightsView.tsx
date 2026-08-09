@@ -81,35 +81,63 @@ export const InsightsView: React.FC<InsightsViewProps> = ({
     return { linePath: d, areaPath, points };
   };
 
-  // Detailed time label generator per timeframe index
+  // Detailed time and date label generator per timeframe index
   const getPointTimeLabel = (index: number, total: number, tf: import('../types').TimeframeKey) => {
-    const ratio = total > 1 ? index / (total - 1) : 0;
+    const ratio = total > 1 ? index / (total - 1) : 1;
+
+    let baseDate = new Date();
+    if (selectedDate) {
+      try {
+        const parts = selectedDate.split('-');
+        if (parts.length === 3) {
+          baseDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+        }
+      } catch {
+        baseDate = new Date();
+      }
+    }
+
+    const formatShort = (d: Date) => {
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
     if (tf === '1D') {
       const startMinutes = 9 * 60 + 30; // 9:30 AM
-      const endMinutes = 16 * 60; // 4:00 PM
-      const currentMin = Math.round(startMinutes + ratio * (endMinutes - startMinutes));
+      const currentMin = Math.round(startMinutes + ratio * 390); // 390 mins total
       const hours = Math.floor(currentMin / 60);
       const mins = currentMin % 60;
       const period = hours >= 12 ? 'PM' : 'AM';
       const displayHours = hours > 12 ? hours - 12 : hours;
-      return `${displayHours}:${mins < 10 ? '0' : ''}${mins} ${period} EST`;
+      const timeStr = `${displayHours}:${mins < 10 ? '0' : ''}${mins} ${period} EST`;
+      return `${formatShort(baseDate)} • ${timeStr}`;
     }
+
     if (tf === '1W') {
-      const days = ['Mon 9:30 AM', 'Mon 4:00 PM', 'Tue 12:00 PM', 'Wed 9:30 AM', 'Wed 4:00 PM', 'Thu 12:00 PM', 'Fri 9:30 AM', 'Fri 12:00 PM', 'Fri 4:00 PM'];
-      const idx = Math.min(days.length - 1, Math.floor(ratio * days.length));
-      return days[idx];
+      const targetDate = new Date(baseDate);
+      const daysBack = Math.round((1 - ratio) * 6);
+      targetDate.setDate(baseDate.getDate() - daysBack);
+      return formatShort(targetDate);
     }
+
     if (tf === '1M') {
-      const dayNum = Math.round(1 + ratio * 29);
-      return `Day ${dayNum} of 30`;
+      const targetDate = new Date(baseDate);
+      const daysBack = Math.round((1 - ratio) * 29);
+      targetDate.setDate(baseDate.getDate() - daysBack);
+      return formatShort(targetDate);
     }
+
     if (tf === '3M') {
-      const monthDays = Math.round(1 + ratio * 90);
-      return `Day ${monthDays} of 90`;
+      const targetDate = new Date(baseDate);
+      const daysBack = Math.round((1 - ratio) * 89);
+      targetDate.setDate(baseDate.getDate() - daysBack);
+      return formatShort(targetDate);
     }
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const mIdx = Math.min(11, Math.floor(ratio * 12));
-    return `${months[mIdx]} 2024`;
+
+    // 1Y
+    const targetDate = new Date(baseDate);
+    const daysBack = Math.round((1 - ratio) * 364);
+    targetDate.setDate(baseDate.getDate() - daysBack);
+    return formatShort(targetDate);
   };
 
   // Helper to calculate price at index
@@ -157,45 +185,38 @@ export const InsightsView: React.FC<InsightsViewProps> = ({
     setIsAskingAI(false);
   };
 
-  const renderSparkline = (data: number[], isPositive: boolean) => {
-    if (!data || data.length === 0) return null;
-    const width = 100;
-    const height = 30;
-    const maxVal = Math.max(...data, 1);
-    const minVal = Math.min(...data, 0);
-    const range = maxVal - minVal || 1;
+  // Dynamic preset date buttons relative to today
+  const getPresetDates = () => {
+    const today = new Date();
+    const formatDate = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
 
-    const points = data.map((val, idx) => {
-      const x = (idx / (data.length - 1)) * width;
-      const y = height - ((val - minVal) / range) * (height - 6) - 3;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    });
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
 
-    const pathData = `M ${points.join(' L ')}`;
-    const color = isPositive ? '#4edea3' : '#ffb4ab';
+    const daysAgo3 = new Date(today);
+    daysAgo3.setDate(today.getDate() - 3);
 
-    return (
-      <svg className="w-full h-8 mt-1" viewBox="0 0 100 30" preserveAspectRatio="none">
-        <path
-          d={pathData}
-          fill="none"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
+    const weekAgo = new Date(today);
+    weekAgo.setDate(today.getDate() - 7);
+
+    const monthAgo = new Date(today);
+    monthAgo.setMonth(today.getMonth() - 1);
+
+    return [
+      { label: 'Today', value: formatDate(today) },
+      { label: 'Yesterday', value: formatDate(yesterday) },
+      { label: '3 Days Ago', value: formatDate(daysAgo3) },
+      { label: '1 Week Ago', value: formatDate(weekAgo) },
+      { label: '1 Month Ago', value: formatDate(monthAgo) },
+    ];
   };
 
-  // Preset historical date buttons
-  const datePresets = [
-    { label: 'Mar 15, 2024', value: '2024-03-15' },
-    { label: 'Mar 14, 2024', value: '2024-03-14' },
-    { label: 'Mar 11, 2024', value: '2024-03-11' },
-    { label: 'Feb 28, 2024', value: '2024-02-28' },
-    { label: 'Jan 15, 2024', value: '2024-01-15' },
-  ];
+  const datePresets = getPresetDates();
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">

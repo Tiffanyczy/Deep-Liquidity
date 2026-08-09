@@ -11,8 +11,17 @@ import {
   initialAIPulse,
   initialStocks,
   stockInsightsMap,
+  getDynamicInsightForStock,
 } from './data/marketData';
 import { Stock, StockInsight, AIPulse } from './types';
+
+const getTodayString = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('markets');
@@ -27,49 +36,16 @@ export default function App() {
   });
 
   const [currentTicker, setCurrentTicker] = useState<string>('TSLA');
-  const [selectedInsightDate, setSelectedInsightDate] = useState<string>('2024-03-15');
+  const [selectedInsightDate, setSelectedInsightDate] = useState<string>(getTodayString());
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(true);
   const [showNotificationToast, setShowNotificationToast] = useState(false);
   const [isRegeneratingPulse, setIsRegeneratingPulse] = useState(false);
 
-  // Get current stock insight or create dynamic fallback
+  // Get current stock insight dynamically based on ticker and selected date
   const getCurrentInsight = (): StockInsight => {
-    if (stockInsightsMap[currentTicker]) {
-      return stockInsightsMap[currentTicker];
-    }
-
     const stock = stocks.find((s) => s.ticker === currentTicker) || stocks[0];
-    return {
-      ticker: stock.ticker,
-      companyName: stock.name,
-      date: 'March 15, 2024',
-      catalystTitle: `${stock.name} Quarterly Capital Allocation`,
-      catalystCategory: 'THE CATALYST',
-      catalystDescription: `Institutional trading activity around ${stock.ticker} shows elevated buy-side interest driven by sector momentum and AI infrastructure expansions. Market makers report balanced order books around $${stock.price.toFixed(2)}.`,
-      intradayChange: stock.isPositive ? `+${stock.changePercent.toFixed(2)}%` : `${stock.changePercent.toFixed(2)}%`,
-      intradayNote: `Heavy institutional block trading detected during market open. Technical support holds firm at $${(stock.price * 0.98).toFixed(2)}.`,
-      intradaySparkline: stock.sparklineData,
-      sentiment: stock.isPositive ? 'BULLISH' : 'NEUTRAL',
-      retailScore: stock.isPositive ? 84 : 62,
-      institutionalScore: stock.isPositive ? 78 : 55,
-      timeline: [
-        {
-          time: '9:30 AM EST',
-          title: 'Market Open',
-          description: `Opening volume surge in ${stock.ticker} following sector upgrades.`,
-          changePercent: stock.isPositive ? '+0.8%' : '-0.5%',
-          isPositive: stock.isPositive,
-        },
-        {
-          time: '1:00 PM EST',
-          title: 'Midday Liquidity Surge',
-          description: 'Institutional block trades cross secondary market.',
-          changePercent: stock.isPositive ? '+1.5%' : '-0.2%',
-          isPositive: stock.isPositive,
-        },
-      ],
-    };
+    return getDynamicInsightForStock(stock, selectedInsightDate);
   };
 
   const handleSelectStock = (stock: Stock) => {
