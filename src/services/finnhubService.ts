@@ -1,4 +1,4 @@
-import { FinnhubQuote, FinnhubNewsItem, FinnhubProfile, FinnhubRecommendation, FinnhubStatus } from '../types';
+import { FinnhubQuote, FinnhubNewsItem, FinnhubProfile, FinnhubRecommendation, FinnhubStatus, CompanyListing } from '../types';
 
 export const finnhubService = {
   /**
@@ -123,6 +123,22 @@ export const finnhubService = {
       return data.data || [];
     } catch (err) {
       console.warn(`Finnhub recommendations error for ${symbol}:`, err);
+      return [];
+    }
+  },
+
+  /**
+   * Fetch the full US public company directory (ticker + name), cached
+   * server-side. Powers market-wide search beyond the tracked ticker list.
+   */
+  async getSymbols(): Promise<CompanyListing[]> {
+    try {
+      const res = await fetch('/api/finnhub/symbols');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.companies || [];
+    } catch (err) {
+      console.warn('Finnhub symbol directory error:', err);
       return [];
     }
   },
