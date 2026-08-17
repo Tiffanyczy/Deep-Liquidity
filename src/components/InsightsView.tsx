@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { StockInsight, Stock, TimeframePrice } from '../types';
+import React, { useState, useEffect } from 'react';
+import { StockInsight, Stock, TimeframePrice, FinnhubNewsItem, FinnhubRecommendation } from '../types';
 import { getTimeframeDataForStock } from '../data/marketData';
+import { finnhubService } from '../services/finnhubService';
 
 interface InsightsViewProps {
   currentInsight: StockInsight;
@@ -23,6 +24,36 @@ export const InsightsView: React.FC<InsightsViewProps> = ({
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
   const [isAskingAI, setIsAskingAI] = useState(false);
   const [activeTimeframe, setActiveTimeframe] = useState<import('../types').TimeframeKey>('1D');
+
+  // Finnhub Live News & Recommendation State
+  const [finnhubNews, setFinnhubNews] = useState<FinnhubNewsItem[]>([]);
+  const [finnhubRecs, setFinnhubRecs] = useState<FinnhubRecommendation[]>([]);
+  const [loadingFinnhub, setLoadingFinnhub] = useState<boolean>(false);
+
+  // Fetch Finnhub live data for current stock
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingFinnhub(true);
+
+    Promise.all([
+      finnhubService.getCompanyNews(currentInsight.ticker),
+      finnhubService.getRecommendations(currentInsight.ticker),
+    ])
+      .then(([news, recs]) => {
+        if (isMounted) {
+          setFinnhubNews(news.slice(0, 4));
+          setFinnhubRecs(recs);
+          setLoadingFinnhub(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setLoadingFinnhub(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentInsight.ticker]);
 
   // Interactive Chart State for Trend Price Inspection
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -755,6 +786,195 @@ export const InsightsView: React.FC<InsightsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Finnhub Live News & Analyst Consensus Grid */}
+      {(finnhubNews.length > 0 || finnhubRecs.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          {/* Real-time Finnhub News (7 Cols) */}
+          <div className="md:col-span-7 bg-[#131b2e] border border-[#2d3449] rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#2d3449]">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#4edea3]">newspaper</span>
+                <h3 className="font-headline-sm text-base font-semibold text-[#dae2fd]">
+                  Finnhub Real-Time News Feed
+                </h3>
+              </div>
+              <span className="font-label-sm text-[10px] px-2 py-0.5 bg-[#005236]/30 text-[#4edea3] border border-[#005236] rounded font-semibold">
+                LIVE SOURCE
+              </span>
+            </div>
+
+            <div className="space-y-3.5">
+              {finnhubNews.map((item, idx) => (
+                <a
+                  key={idx}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-3 rounded-lg bg-[#0b1326] border border-[#2d3449] hover:border-[#528dff] transition-all group"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-[#8c90a0] mb-1 font-label-sm">
+                    <span className="text-[#afc6ff] font-medium">{item.source || 'Market Wire'}</span>
+                    <span>
+                      {item.datetime ? new Date(item.datetime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
+                    </span>
+                  </div>
+                  <h4 className="font-headline-sm text-xs font-semibold text-[#dae2fd] group-hover:text-[#528dff] transition-colors leading-snug line-clamp-2 mb-1">
+                    {item.headline}
+                  </h4>
+                  {item.summary && (
+                    <p className="font-body-md text-[11px] text-[#c2c6d7] line-clamp-2 leading-relaxed">
+                      {item.summary}
+                    </p>
+                  )}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Finnhub Analyst Consensus (5 Cols) */}
+          <div className="md:col-span-5 bg-[#131b2e] border border-[#2d3449] rounded-xl p-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#2d3449]">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#afc6ff]">insights</span>
+                  <h3 className="font-headline-sm text-base font-semibold text-[#dae2fd]">
+                    Analyst Consensus
+                  </h3>
+                </div>
+                <span className="font-label-sm text-[10px] text-[#8c90a0]">
+                  {finnhubRecs[0]?.period || 'Current'}
+                </span>
+              </div>
+
+              {finnhubRecs[0] ? (
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between font-label-sm text-xs mb-1">
+                      <span className="text-[#4edea3] font-medium">Strong Buy</span>
+                      <span className="font-data-display text-[#4edea3] font-bold">
+                        {finnhubRecs[0].strongBuy}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-[#0b1326] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#4edea3]"
+                        style={{
+                          width: `${
+                            (finnhubRecs[0].strongBuy /
+                              Math.max(
+                                1,
+                                finnhubRecs[0].strongBuy +
+                                  finnhubRecs[0].buy +
+                                  finnhubRecs[0].hold +
+                                  finnhubRecs[0].sell +
+                                  finnhubRecs[0].strongSell
+                              )) *
+                            100
+                          }%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between font-label-sm text-xs mb-1">
+                      <span className="text-[#00a572] font-medium">Buy</span>
+                      <span className="font-data-display text-[#00a572] font-bold">
+                        {finnhubRecs[0].buy}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-[#0b1326] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#00a572]"
+                        style={{
+                          width: `${
+                            (finnhubRecs[0].buy /
+                              Math.max(
+                                1,
+                                finnhubRecs[0].strongBuy +
+                                  finnhubRecs[0].buy +
+                                  finnhubRecs[0].hold +
+                                  finnhubRecs[0].sell +
+                                  finnhubRecs[0].strongSell
+                              )) *
+                            100
+                          }%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between font-label-sm text-xs mb-1">
+                      <span className="text-[#c2c6d7] font-medium">Hold</span>
+                      <span className="font-data-display text-[#c2c6d7] font-bold">
+                        {finnhubRecs[0].hold}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-[#0b1326] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#c2c6d7]"
+                        style={{
+                          width: `${
+                            (finnhubRecs[0].hold /
+                              Math.max(
+                                1,
+                                finnhubRecs[0].strongBuy +
+                                  finnhubRecs[0].buy +
+                                  finnhubRecs[0].hold +
+                                  finnhubRecs[0].sell +
+                                  finnhubRecs[0].strongSell
+                              )) *
+                            100
+                          }%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between font-label-sm text-xs mb-1">
+                      <span className="text-[#ffb4ab] font-medium">Sell</span>
+                      <span className="font-data-display text-[#ffb4ab] font-bold">
+                        {finnhubRecs[0].sell + finnhubRecs[0].strongSell}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-[#0b1326] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#ff516a]"
+                        style={{
+                          width: `${
+                            ((finnhubRecs[0].sell + finnhubRecs[0].strongSell) /
+                              Math.max(
+                                1,
+                                finnhubRecs[0].strongBuy +
+                                  finnhubRecs[0].buy +
+                                  finnhubRecs[0].hold +
+                                  finnhubRecs[0].sell +
+                                  finnhubRecs[0].strongSell
+                              )) *
+                            100
+                          }%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="font-body-md text-xs text-[#8c90a0]">
+                  Analyst recommendation data will populate from Finnhub.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-[#2d3449] flex items-center justify-between text-[11px] text-[#8c90a0]">
+              <span>Wall Street Coverage</span>
+              <span className="text-[#afc6ff] font-semibold">Institutional Grade</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Gemini AI Interactive Analyst Module */}
       <div className="data-card p-5 bg-[#171f33] border border-[#2d3449] mt-2">

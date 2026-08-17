@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Navigation } from './components/Navigation';
 import { MarketsView } from './components/MarketsView';
@@ -10,10 +10,10 @@ import {
   initialMarketIndices,
   initialAIPulse,
   initialStocks,
-  stockInsightsMap,
   getDynamicInsightForStock,
 } from './data/marketData';
-import { Stock, StockInsight, AIPulse } from './types';
+import { Stock, StockInsight, AIPulse, FinnhubStatus } from './types';
+import { finnhubService } from './services/finnhubService';
 
 const getTodayString = () => {
   const today = new Date();
@@ -25,9 +25,9 @@ const getTodayString = () => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('markets');
-  const [marketIndices] = useState(initialMarketIndices);
+  const [marketIndices, setMarketIndices] = useState(initialMarketIndices);
   const [aiPulse, setAiPulse] = useState<AIPulse>(initialAIPulse);
-  const [stocks] = useState<Stock[]>(initialStocks);
+  const [stocks, setStocks] = useState<Stock[]>(initialStocks);
 
   // Watchlist initialized with GOOGL, MSFT, AMZN, META from data
   const [watchlist, setWatchlist] = useState<Stock[]>(() => {
@@ -41,6 +41,77 @@ export default function App() {
   const [unreadNotifications, setUnreadNotifications] = useState(true);
   const [showNotificationToast, setShowNotificationToast] = useState(false);
   const [isRegeneratingPulse, setIsRegeneratingPulse] = useState(false);
+  const [finnhubStatus, setFinnhubStatus] = useState<FinnhubStatus>({ connected: false, hasKey: false });
+  const [isRefreshingData, setIsRefreshingData] = useState<boolean>(false);
+
+  // Refresh live stock and indices data from Finnhub API
+  const refreshMarketData = useCallback(async () => {
+    setIsRefreshingData(true);
+    try {
+      const status = await finnhubService.getStatus();
+      setFinnhubStatus(status);
+
+      const allSymbols = [
+        'TSLA', 'NVDA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'AMD', 'PLTR', 'COIN',
+        'SPY', 'QQQ', 'DIA'
+      ];
+
+      const quotes = await finnhubService.getBatchQuotes(allSymbols);
+
+      if (quotes && Object.keys(quotes).length > 0) {
+        // Update stock list with live Finnhub prices
+        setStocks((prevStocks) =>
+          prevStocks.map((stock) => {
+            const q = quotes[stock.ticker];
+            if (q && q.c > 0) {
+              const isPos = q.d >= 0;
+              return {
+                ...stock,
+                price: Number(q.c.toFixed(2)),
+                change: Number(q.d.toFixed(2)),
+                changePercent: Number(q.dp.toFixed(2)),
+                isPositive: isPos,
+                sparklineData: stock.sparklineData.length > 0 ? stock.sparklineData : [q.o, (q.o + q.c) / 2, q.h, q.l, q.c],
+              };
+            }
+            return stock;
+          })
+        );
+
+        // Update market indices with ETF proxies (SPY for S&P 500, QQQ for Nasdaq, DIA for Dow Jones)
+        setMarketIndices((prevIndices) =>
+          prevIndices.map((idx) => {
+            let proxySymbol = '';
+            if (idx.symbol.includes('S&P') || idx.symbol.includes('SPX')) proxySymbol = 'SPY';
+            else if (idx.symbol.includes('NASDAQ') || idx.symbol.includes('IXIC')) proxySymbol = 'QQQ';
+            else if (idx.symbol.includes('DOW') || idx.symbol.includes('DJI')) proxySymbol = 'DIA';
+
+            const q = quotes[proxySymbol];
+            if (q && q.c > 0) {
+              const isPos = q.d >= 0;
+              return {
+                ...idx,
+                value: q.c.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                change: isPos ? `+${q.d.toFixed(2)}` : `${q.d.toFixed(2)}`,
+                changePercent: isPos ? `+${q.dp.toFixed(2)}%` : `${q.dp.toFixed(2)}%`,
+                isPositive: isPos,
+              };
+            }
+            return idx;
+          })
+        );
+      }
+    } catch (err) {
+      console.warn('Finnhub data refresh error:', err);
+    } finally {
+      setIsRefreshingData(false);
+    }
+  }, []);
+
+  // Check Finnhub status & fetch live data on mount
+  useEffect(() => {
+    refreshMarketData();
+  }, [refreshMarketData]);
 
   // Get current stock insight dynamically based on ticker and selected date
   const getCurrentInsight = (): StockInsight => {
@@ -127,6 +198,9 @@ export default function App() {
         onOpenSearch={() => setActiveTab('search')}
         unreadNotifications={unreadNotifications}
         onToggleNotifications={handleToggleNotifications}
+        finnhubConnected={finnhubStatus.connected}
+        isRefreshingData={isRefreshingData}
+        onRefreshData={refreshMarketData}
       />
 
       {/* Notification Toast Dropdown */}

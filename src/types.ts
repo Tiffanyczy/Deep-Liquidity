@@ -68,3 +68,60 @@ export interface AIPulse {
   tags: string[];
   lastUpdated: string;
 }
+
+export interface FinnhubStatus {
+  connected: boolean;
+  hasKey: boolean;
+}
+
+export interface FinnhubQuote {
+  symbol: string;
+  c: number; // Current price
+  d: number; // Change
+  dp: number; // Percent change
+  h: number; // High
+  l: number; // Low
+  o: number; // Open
+  pc: number; // Previous close
+  t: number; // Timestamp
+  connected?: boolean;
+  source?: string;
+}
+
+export interface FinnhubNewsItem {
+  id?: number;
+  category: string;
+  datetime: number;
+  headline: string;
+  image?: string;
+  related?: string;
+  source: string;
+  summary: string;
+  url: string;
+}
+
+export interface FinnhubProfile {
+  country?: string;
+  currency?: string;
+  exchange?: string;
+  finnhubIndustry?: string;
+  ipo?: string;
+  logo?: string;
+  marketCapitalization?: number;
+  name?: string;
+  phone?: string;
+  shareOutstanding?: number;
+  ticker?: string;
+  weburl?: string;
+}
+
+export interface FinnhubRecommendation {
+  buy: number;
+  hold: number;
+  period: string;
+  sell: number;
+  strongBuy: number;
+  strongSell: number;
+  symbol: string;
+}
+
