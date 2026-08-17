@@ -119,7 +119,14 @@ export default function App() {
     return getDynamicInsightForStock(stock, selectedInsightDate);
   };
 
+  // Registers a company discovered outside the curated list (e.g. via
+  // full-market search) into `stocks`, so insights and watchlist can find it.
+  const handleDiscoverStock = (stock: Stock) => {
+    setStocks((prev) => (prev.some((s) => s.ticker === stock.ticker) ? prev : [...prev, stock]));
+  };
+
   const handleSelectStock = (stock: Stock) => {
+    handleDiscoverStock(stock);
     setSelectedStock(stock);
   };
 
@@ -128,7 +135,15 @@ export default function App() {
     setActiveTab('insights');
   };
 
+  // Used when insights are requested for a company outside the curated list
+  // (e.g. from full-market search) so it gets registered first.
+  const handleDiscoverAndViewInsights = (stock: Stock) => {
+    handleDiscoverStock(stock);
+    handleViewInsightsForTicker(stock.ticker);
+  };
+
   const handleAddToWatchlist = (stock: Stock) => {
+    handleDiscoverStock(stock);
     if (!watchlist.some((item) => item.ticker === stock.ticker)) {
       setWatchlist([...watchlist, stock]);
     }
@@ -266,6 +281,7 @@ export default function App() {
             onSelectStock={handleSelectStock}
             onAddToWatchlist={handleAddToWatchlist}
             onViewInsightsForTicker={handleViewInsightsForTicker}
+            onDiscoverAndViewInsights={handleDiscoverAndViewInsights}
           />
         )}
       </main>

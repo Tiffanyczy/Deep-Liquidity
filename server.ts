@@ -274,6 +274,55 @@ async function startServer() {
     }
   });
 
+  // Finnhub Full US Symbol Directory (cached in-memory, refreshed once a day)
+  // Powers market-wide search across ~8,000+ US common stocks, not just the
+  // tracked tickers used elsewhere in the app.
+  let symbolDirectoryCache: { symbol: string; name: string }[] | null = null;
+  let symbolDirectoryCachedAt = 0;
+  const SYMBOL_DIRECTORY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  app.get('/api/finnhub/symbols', async (req, res) => {
+    const apiKey = getFinnhubKey();
+    if (!apiKey) {
+      return res.json({ connected: false, companies: [] });
+    }
+
+    const now = Date.now();
+    if (symbolDirectoryCache && now - symbolDirectoryCachedAt < SYMBOL_DIRECTORY_TTL_MS) {
+      return res.json({ connected: true, companies: symbolDirectoryCache });
+    }
+
+    try {
+      const response = await fetch(
+        `https://finnhub.io/api/v1/stock/symbol?exchange=US&token=${encodeURIComponent(apiKey)}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Finnhub symbol directory request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const companies = (Array.isArray(data) ? data : [])
+        .filter((item: any) => item.type === 'Common Stock' && item.symbol && item.description)
+        .map((item: any) => ({ symbol: item.symbol, name: item.description }));
+
+      symbolDirectoryCache = companies;
+      symbolDirectoryCachedAt = now;
+
+      res.json({ connected: true, companies });
+    } catch (err: any) {
+      console.error('Finnhub symbol directory error:', err);
+      // Serve a stale cache rather than failing outright, if we have one
+      if (symbolDirectoryCache) {
+        return res.json({ connected: true, companies: symbolDirectoryCache, stale: true });
+      }
+      res.status(500).json({
+        error: 'Failed to fetch symbol directory',
+        message: err.message || String(err),
+      });
+    }
+  });
+
   // Finnhub Recommendations
   app.get('/api/finnhub/recommendations', async (req, res) => {
     try {

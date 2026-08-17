@@ -125,3 +125,18 @@ export interface FinnhubRecommendation {
   symbol: string;
 }
 
+// A single entry from Finnhub's full US exchange symbol directory
+export interface FinnhubSymbol {
+  symbol: string;
+  description: string;
+  type: string;
+  displaySymbol?: string;
+  currency?: string;
+  mic?: string;
+}
+
+// Lightweight ticker/name pair used to power market-wide search in the UI
+export interface CompanyListing {
+  symbol: string;
+  name: string;
+}
